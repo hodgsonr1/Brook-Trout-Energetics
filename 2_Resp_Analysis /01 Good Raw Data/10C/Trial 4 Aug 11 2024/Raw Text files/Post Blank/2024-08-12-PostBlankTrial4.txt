@@ -1,0 +1,19 @@
+Date & time of file creation	2024-08-12 4:09 PM																																	
+Data file path	C:\Users\ry1ho\OneDrive\Desktop\Kenauk Respirometry   2024 RH\Respirometry Data Summer 2024\Trial 4 Aug 11 2024\2024-08-12-PostBlankTrial4.txt																																	
+Raw data file path	C:\Users\ry1ho\OneDrive\Desktop\Kenauk Respirometry   2024 RH\Respirometry Data Summer 2024\Trial 4 Aug 11 2024\2024-08-12-PostBlankTrial4_raw.txt																																	
+																																		
+																																		
+Parameter/Chamber	Wet weight [g]	Resp. volume [mL]	Fish length [cm]	Fractional error [%]	Chamber notes																													
+Chamber 1	100	900	10																															
+Chamber 2	100	900																																
+Chamber 3	100	900																																
+Chamber 4	100	900																																
+																																		
+																																		
+Date &Time [DD-MM-YYYY/HH:MM:SS]	Time [sec]	Loop	Phase time [s]	CH 1 MO2 [mgO2/kg/hr]	CH 1 slope [mgO2/L/hr]	CH 1 R^2	CH 1 max O2 [mgO2/L]	CH 1 min O2 [mgO2/L]	CH 1 avg O2 [mgO2/L]	CH 1 avg temp [°C]	CH 2 MO2 [mgO2/kg/hr]	CH 2 slope [mgO2/L/hr]	CH 2 R^2	CH 2 max O2 [mgO2/L]	CH 2 min O2 [mgO2/L]	CH 2 avg O2 [mgO2/L]	CH 2 avg temp [°C]	CH 3 MO2 [mgO2/kg/hr]	CH 3 slope [mgO2/L/hr]	CH 3 R^2	CH 3 max O2 [mgO2/L]	CH 3 min O2 [mgO2/L]	CH 3 avg O2 [mgO2/L]	CH 3 avg temp [°C]	CH 4 MO2 [mgO2/kg/hr]	CH 4 slope [mgO2/L/hr]	CH 4 R^2	CH 4 max O2 [mgO2/L]	CH 4 min O2 [mgO2/L]	CH 4 avg O2 [mgO2/L]	CH 4 avg temp [°C]	AMB temp N°1 avg temp [°C]	AMB temp N°1 setpoint [°C]	AMB temp N°1 hysteresis [°C]
+2024-08-12/4:20:05 PM	603	1	M600	-5.8	0.644	0.724	11.31	11.14	11.23	9.70	-5.5	0.614	0.855	11.45	11.30	11.38	9.70	-5.7	0.637	0.868	11.54	11.38	11.47	9.70	-5.8	0.644	0.893	11.29	11.13	11.21	9.70	9.70	20.00	0.10
+2024-08-12/4:30:05 PM	1203	2	M600	-5.4	0.604	0.850	11.41	11.25	11.33	9.52	-4.3	0.483	0.842	11.52	11.41	11.46	9.52	-4.1	0.453	0.817	11.61	11.49	11.56	9.52	-4.3	0.479	0.856	11.36	11.24	11.30	9.52	9.52	20.00	0.10
+2024-08-12/4:40:05 PM	1803	3	M600	4.1	-0.457	0.780	11.40	11.27	11.32	9.53	3.9	-0.430	0.800	11.52	11.40	11.45	9.53	4.1	-0.455	0.791	11.61	11.47	11.53	9.53	4.1	-0.456	0.817	11.35	11.24	11.29	9.53	9.53	20.00	0.10
+2024-08-12/4:50:05 PM	2403	4	M600	2.5	-0.278	0.594	11.31	11.21	11.27	9.64	2.5	-0.281	0.674	11.43	11.34	11.39	9.64	2.5	-0.277	0.632	11.52	11.42	11.47	9.64	1.9	-0.208	0.558	11.28	11.19	11.24	9.64	9.64	20.00	0.10
+2024-08-12/5:00:05 PM	3003	5	M600	2.4	-0.271	0.562	11.27	11.18	11.22	9.75	2.3	-0.258	0.643	11.38	11.31	11.34	9.75	2.8	-0.309	0.693	11.47	11.37	11.42	9.75	1.9	-0.215	0.574	11.24	11.16	11.20	9.75	9.75	20.00	0.10
+2024-08-12/5:10:05 PM	3603	6	M600	1.9	-0.209	0.525	11.22	11.14	11.18	9.85	2.0	-0.220	0.616	11.34	11.27	11.30	9.85	2.4	-0.261	0.695	11.41	11.33	11.37	9.85	1.6	-0.175	0.535	11.20	11.13	11.17	9.85	9.85	20.00	0.10
