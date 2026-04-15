@@ -7,23 +7,25 @@
 
 #Ryan Hodgson 
 #Nov 29 2025
+#updated: Apr 6 2026
 
 getwd()
 
 #load packages
 library(dplyr)
 library(FSA)
+library(FSAdata)
+library(nlstools)
 library(ggplot2)
+
 
 #load data
 growth <- read.csv("Inputs/BsM_BTdata.csv")
 
-head(growth)
-
 #clean data ----
 # Select relevant columns and remove missing values
 growth_clean <- growth %>%
-  select(Age, RoundWeight) %>%
+  select(Age, RoundWeight, TotalLength) %>%
   filter(!is.na(Age) & !is.na(RoundWeight) & Age > 0 & RoundWeight > 0)
 summary(growth_clean)
 
@@ -36,31 +38,49 @@ cat("Weight range:", min(growth_clean$RoundWeight), "-", max(growth_clean$RoundW
 cat("\nObservations per age class:\n")
 print(table(growth_clean$Age))
 
+#Estimate Starting Values 
 
-#fit VBGF model ----
-# Examine max values to inform starting parameters
+#1) determine parameters from age-length data 
+svTypical <- findGrowthStarts(TotalLength~Age,data=growth_clean)
+print(svTypical)
+Linf_S <- svTypical[["Linf"]]
+K_S <- svTypical[["K"]]
+t0_S <- svTypical[["t0"]]
+
+#2) determine length-weight allometric relationship 
+#regress the two, extract a and b. 
+#coefficient (slope) = b
+#intercept = a
+lw_reg <- lm(log(RoundWeight)~log(TotalLength), data = growth_clean)
+a <- exp(coef(lw_reg)[1])
+b <- coef(lw_reg)[2]
+
+#3) Determine Winf from a,b and Linf
+Winf_S <- a * Linf_S^b
+b_fixed <- b #fix allometric scaling coefficient to allow model convergence
+print(Winf_S)
+print(b_fixed)
+# # Examine max values to check parameters
 max_age <- max(growth_clean$Age)
 max_weight <- max(growth_clean$RoundWeight)
+mean_max_weight <- mean(growth_clean$RoundWeight[growth_clean$Age == max(growth_clean$Age)])
 cat("\nMax observed age:", max_age, "years\n")
 cat("Max observed weight:", max_weight, "g\n")
+cat("Meam max observed weight:", mean_max_weight, "g\n")
 
-# Set manual starting values based on biological knowledge
-# Winf should be larger than max observed weight (asymptotic value)
-# K typically ranges from 0.1-0.5 for fish
-# t0 typically slightly negative
-sv <- list(Winf = max_weight * 1.2,  # Set Winf 20% higher than max observed
-           K = 0.3,                    # Moderate growth rate
-           t0 = -0.5)                  # Typical negative t0
-
+#
 cat("\nManual starting parameter values:\n")
-cat("Winf:", sv$Winf, "g\n")
-cat("K:", sv$K, "\n")
-cat("t0:", sv$t0, "\n")
+cat("Winf:",Winf_S, "g\n")
+cat("K:", K_S, "\n")
+cat("t0:", t0_S, "\n")
+cat("b", b, "\n")
 
-# Fit the VBGF model using nonlinear least squares
-fit <- nls(RoundWeight ~ Winf * (1 - exp(-K * (Age - t0)))^3,
+#4) create list of starting paramters to fit model
+start <- list(Winf = unname(Winf_S), K = unname(K_S), t0 = unname(t0_S))
+#5) fit the VBGF using non-linear least squares
+fit <- nls(RoundWeight ~ Winf * (1 - exp(-K * (Age - t0)))^b_fixed,
            data = growth_clean,
-           start = sv)
+           start = start)
 
 # Display model summary
 cat("\n=== VBGF Model Summary ===\n")
@@ -71,64 +91,24 @@ params <- coef(fit)
 Winf <- params["Winf"]
 K <- params["K"]
 t0 <- params["t0"]
+cat("\nFinal Model Parameter values:\n")
+cat("Winf:",Winf, "g\n")
+cat("K:", K, "\n")
+cat("t0:", t0, "\n")
+cat("b", b, "\n")
 
-cat("\n=== Fitted Parameters ===\n")
-cat("Winf (asymptotic weight):", round(Winf, 2), "g\n")
-cat("K (growth coefficient):", round(K, 4), "\n")
-cat("t0 (theoretical age at weight=0):", round(t0, 2), "years\n")
+#check model fit 
+par(mfrow = c(1, 2))
+hist(residuals(fit), main = "Residuals", xlab = "Residuals")
+plot(residuals(fit) ~ fitted(fit), main = "Residuals vs Fitted")
+abline(h = 0, col = "red")
+par(mfrow = c(1, 1))
 
-#model diagnostics ----
-# Calculate residuals and fitted values
-growth_clean$fitted <- predict(fit)
-growth_clean$residuals <- residuals(fit)
-
-# Calculate goodness-of-fit metrics
-SS_res <- sum(growth_clean$residuals^2)
-SS_tot <- sum((growth_clean$RoundWeight - mean(growth_clean$RoundWeight))^2)
-R_squared <- 1 - (SS_res / SS_tot)
-RMSE <- sqrt(mean(growth_clean$residuals^2))
-
-cat("\n=== Model Fit Statistics ===\n")
-cat("R-squared:", round(R_squared, 4), "\n")
-cat("RMSE:", round(RMSE, 2), "g\n")
-cat("Mean absolute error:", round(mean(abs(growth_clean$residuals)), 2), "g\n")
-
-# Create diagnostic plots
-# 1. Residuals vs Fitted
-p1 <- ggplot(growth_clean, aes(x = fitted, y = residuals)) +
-  geom_point(alpha = 0.5, color = "steelblue") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  geom_smooth(se = FALSE, color = "black", linewidth = 0.5) +
-  labs(title = "Residuals vs Fitted Values",
-       x = "Fitted Weight (g)",
-       y = "Residuals (g)") +
-  theme_bw()
-
-# 2. Residuals vs Age
-p2 <- ggplot(growth_clean, aes(x = Age, y = residuals)) +
-  geom_point(alpha = 0.5, color = "steelblue") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  geom_smooth(se = FALSE, color = "black", linewidth = 0.5) +
-  labs(title = "Residuals vs Age",
-       x = "Age (years)",
-       y = "Residuals (g)") +
-  theme_bw()
-
-# 3. Histogram of residuals
-p3 <- ggplot(growth_clean, aes(x = residuals)) +
-  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "red") +
-  labs(title = "Distribution of Residuals",
-       x = "Residuals (g)",
-       y = "Frequency") +
-  theme_bw()
-
-# Display diagnostic plots
-cat("\nDisplaying diagnostic plots...\n")
-print(p1)
-print(p2)
-print(p3)
-
+#### ------ #
+#generating confidence intervals using nlsBoot
+bootTypical <- nlsBoot(fit, niter = 1000)
+confint(bootTypical, plot = TRUE)
+#
 #VGBF visualization ----
 # Create prediction data for smooth curve
 age_pred <- seq(min(growth_clean$Age), max(growth_clean$Age), length.out = 100)
@@ -136,26 +116,13 @@ weight_pred <- predict(fit, newdata = data.frame(Age = age_pred))
 
 pred_data <- data.frame(Age = age_pred, RoundWeight = weight_pred)
 
-# Create growth curve plot
-growth_plot <- ggplot() +
-  # Raw data points
-  geom_point(data = growth_clean, aes(x = Age, y = RoundWeight),
-             alpha = 0.4, size = 2, color = "steelblue") +
-  # Fitted VBGF curve
-  geom_line(data = pred_data, aes(x = Age, y = RoundWeight),
-            color = "red", size = 1.2) +
-  # Labels and theme
-  labs(
-       x = "Age (years)",
-       y = "Weight (g)") +
-  theme_classic() +
-  theme(axis.line = element_line(linewidth = 1.5),
-        axis.title = element_text(size = 18, face = "bold"),
-        axis.text = element_text(size = 18, face = "bold"))
-
-# Display the plot
-print(growth_plot)
-ggsave("Graphs/VBGF_growth_curve.png", growth_plot, width = 8, height = 6, dpi = 300)
+# Generate bootstrap CI band from nlsBoot parameter samples
+boot_preds <- apply(bootTypical$coefboot, 1, function(p) {
+  p["Winf"] * (1 - exp(-p["K"] * (age_pred - p["t0"])))^b_fixed
+})
+# boot_preds is a matrix: rows = age points, cols = bootstrap iterations
+pred_data$lower <- apply(boot_preds, 1, quantile, probs = 0.025, na.rm = TRUE)
+pred_data$upper <- apply(boot_preds, 1, quantile, probs = 0.975, na.rm = TRUE)
 
 
 ##Predicting Normal Growth Outcomes over 120-days ----
@@ -165,7 +132,6 @@ weight_groups <- weight_groups %>%
   mutate(Weight_g = Weight_kg *1000)  %>%
   select(Weight_g, Weight_Class) %>% 
   distinct(Weight_Class,.keep_all = TRUE)
-
 
 glimpse(weight_groups)
 
@@ -199,7 +165,42 @@ weight_groups <- weight_groups %>%
 cat("\n=== 120-Day Growth Predictions ===\n")
 print(weight_groups)
 
+# Propagate bootstrap parameter uncertainty through 120-day predictions
+boot_120 <- apply(bootTypical$coefboot, 1, function(p) {
+  Winf_b <- p["Winf"]; K_b <- p["K"]; t0_b <- p["t0"]
+  init_age_b  <- age_from_weight(weight_groups$initial_g, Winf_b, K_b, t0_b)
+  final_age_b <- init_age_b + (120 / 365)
+  weight_from_age(final_age_b, Winf_b, K_b, t0_b)
+})
+# boot_120 is a matrix: rows = weight classes, cols = bootstrap iterations
+weight_groups$lower_final_g <- apply(boot_120, 1, quantile, probs = 0.025, na.rm = TRUE)
+weight_groups$upper_final_g <- apply(boot_120, 1, quantile, probs = 0.975, na.rm = TRUE)
+
 # Save weight_groups for use in BT FB4 model
-saveRDS(weight_groups %>% select(Weight_Class, initial_g, final_g),
+saveRDS(weight_groups %>% select(Weight_Class, initial_g, final_g, lower_final_g, upper_final_g),
         "Inputs/weight_groups_vbgf.rds")
 cat("\nSaved weight_groups to Inputs/weight_groups_vbgf.rds\n")
+
+# Create growth curve plot
+growth_plot <- ggplot() +
+  # Bootstrap 95% CI band on curve
+  geom_ribbon(data = pred_data, aes(x = Age, ymin = lower, ymax = upper),
+              fill = "red", alpha = 0.2) +
+  # Raw data points
+  geom_point(data = growth_clean, aes(x = Age, y = RoundWeight),
+             alpha = 0.4, size = 2, color = "steelblue") +
+  # Fitted VBGF curve
+  geom_line(data = pred_data, aes(x = Age, y = RoundWeight),
+            color = "red", size = 1.2) +
+  # Labels and theme
+  labs(
+       x = "Age (years)",
+       y = "Weight (g)") +
+  theme_classic() +
+  theme(axis.line = element_line(linewidth = 1.5),
+        axis.title = element_text(size = 18, face = "bold"),
+        axis.text = element_text(size = 18, face = "bold"))
+
+# Display the plot
+print(growth_plot)
+ggsave("Graphs/VBGF_growth_curve.png", growth_plot, width = 8, height = 6, dpi = 300)

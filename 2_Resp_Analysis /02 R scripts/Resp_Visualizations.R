@@ -309,84 +309,86 @@ add_side_bracket <- function(p, label = NULL,
 
 #-------#-------#-------#-------#-------#-------#-------#-------
 
-# --- add horizontal bracket above treatment group for within-treatment comparisons ---
-add_horizontal_bracket <- function(p,
-                                  treatment_x_pos = 2,      # chase is 2nd treatment
-                                  label = NULL,
-                                  dodge_width = 0.8,
-                                  y_offset_frac = 0.15,     # position from top
-                                  tick_h = 0.02,            # tick height
-                                  line_size = 0.5) {        # match existing brackets
-
-  # Extract plot parameters
-  gb <- ggplot_build(p)
-  pp <- gb$layout$panel_params[[1]]
-
-  # Get y-range
-  y_rng <- if (!is.null(pp$y.range)) pp$y.range else pp$y$range
-  y_span <- diff(range(y_rng))
-
-  # Calculate bracket y-position (near top of plot)
-  y_bracket <- y_rng[2] - (y_offset_frac * y_span)
-  tick_height <- tick_h * y_span
-
-  # Calculate x-positions for dodged boxes
-  # With dodge_width = 0.8 and 2 temperature groups:
-  dodge_offset <- dodge_width / 4  # = 0.2
-  x_left <- treatment_x_pos - dodge_offset   # 10°C box at 1.8
-  x_right <- treatment_x_pos + dodge_offset  # 15°C box at 2.2
-
-  # Build bracket
-  p_out <- p +
-    # Horizontal line
-    geom_segment(inherit.aes = FALSE,
-                 aes(x = x_left, xend = x_right,
-                     y = y_bracket, yend = y_bracket),
-                 linewidth = line_size, colour = "black") +
-    # Left tick
-    geom_segment(inherit.aes = FALSE,
-                 aes(x = x_left, xend = x_left,
-                     y = y_bracket, yend = y_bracket + tick_height),
-                 linewidth = line_size, colour = "black") +
-    # Right tick
-    geom_segment(inherit.aes = FALSE,
-                 aes(x = x_right, xend = x_right,
-                     y = y_bracket, yend = y_bracket + tick_height),
-                 linewidth = line_size, colour = "black")
-
-  # Add label if provided
-  if (!is.null(label)) {
-    y_label <- y_bracket + tick_height + (0.04 * y_span)  # Increased spacing
-    x_label <- (x_left + x_right) / 2
-
-    p_out <- p_out +
-      annotate("text", x = x_label, y = y_label,
-               label = label, size = 5, fontface = "bold")
-  }
-
-  # Prevent clipping
-  p_out <- p_out + coord_cartesian(clip = "off")
-
-  return(p_out)
-}
+# # --- add horizontal bracket above treatment group for within-treatment comparisons ---
+# add_horizontal_bracket <- function(p,
+#                                   treatment_x_pos = 2,      # chase is 2nd treatment
+#                                   label = NULL,
+#                                   dodge_width = 0.8,
+#                                   y_offset_frac = 0.15,     # position from top
+#                                   tick_h = 0.02,            # tick height
+#                                   line_size = 0.5) {        # match existing brackets
+# 
+#   # Extract plot parameters
+#   gb <- ggplot_build(p)
+#   pp <- gb$layout$panel_params[[1]]
+# 
+#   # Get y-range
+#   y_rng <- if (!is.null(pp$y.range)) pp$y.range else pp$y$range
+#   y_span <- diff(range(y_rng))
+# 
+#   # Calculate bracket y-position (near top of plot)
+#   y_bracket <- y_rng[2] - (y_offset_frac * y_span)
+#   tick_height <- tick_h * y_span
+# 
+#   # Calculate x-positions for dodged boxes
+#   # With dodge_width = 0.8 and 2 temperature groups:
+#   dodge_offset <- dodge_width / 4  # = 0.2
+#   x_left <- treatment_x_pos - dodge_offset   # 10°C box at 1.8
+#   x_right <- treatment_x_pos + dodge_offset  # 15°C box at 2.2
+# 
+#   # Build bracket
+#   p_out <- p +
+#     # Horizontal line
+#     geom_segment(inherit.aes = FALSE,
+#                  aes(x = x_left, xend = x_right,
+#                      y = y_bracket, yend = y_bracket),
+#                  linewidth = line_size, colour = "black") +
+#     # Left tick
+#     geom_segment(inherit.aes = FALSE,
+#                  aes(x = x_left, xend = x_left,
+#                      y = y_bracket, yend = y_bracket + tick_height),
+#                  linewidth = line_size, colour = "black") +
+#     # Right tick
+#     geom_segment(inherit.aes = FALSE,
+#                  aes(x = x_right, xend = x_right,
+#                      y = y_bracket, yend = y_bracket + tick_height),
+#                  linewidth = line_size, colour = "black")
+# 
+#   # Add label if provided
+#   if (!is.null(label)) {
+#     y_label <- y_bracket + tick_height + (0.04 * y_span)  # Increased spacing
+#     x_label <- (x_left + x_right) / 2
+# 
+#     p_out <- p_out +
+#       annotate("text", x = x_label, y = y_label,
+#                label = label, size = 5, fontface = "bold")
+#   }
+# 
+#   # Prevent clipping
+#   p_out <- p_out + coord_cartesian(clip = "off")
+# 
+#   return(p_out)
+# }
 
 # --- add brackets to each subplot (use your own p-values/labels) ---
 smr_b   <- add_side_bracket(smr,   label = "p < 0.001")
-peak_b  <- add_side_bracket(peak,  label = "p < 0.002")
+peak_b  <- add_side_bracket(peak,  label = "p < 0.001")
+delta_b <- add_side_bracket(delta, label = "p < 0.004" ) # No vertical bracket
 mag_b   <- mag    # No vertical bracket
 # Add asterisk and p-value for temperature × chase interaction
-dur_b <- dur +
-  # Asterisk positioned right above the boxes
-  annotate("text", x = 2, y = Inf,
-           label = "*",
-           size = 8, fontface = "bold", vjust = 2.5) +
-  # P-value positioned above the asterisk
-  annotate("text", x = 2, y = Inf,
-           label = "p = 0.05",
-           size = 5, fontface = "bold", vjust = 1) +
-  coord_cartesian(clip = "off")
+dur_b <- dur
+  # dur +
+  # # Asterisk positioned right above the boxes
+  # annotate("text", x = 2, y = Inf,
+  #          label = "*",
+  #          size = 8, fontface = "bold", vjust = 2.5) +
+  # # P-value positioned above the asterisk
+  # annotate("text", x = 2, y = Inf,
+  #          label = "p = 0.05",
+  #          size = 5, fontface = "bold", vjust = 1) +
+  # coord_cartesian(clip = "off")
 ratio_b <- ratio  # No vertical bracket
-delta_b <- delta  # No vertical bracket
+
 
 # --- your original patchwork, now using the bracketed plots ---
 ## 1) Build the 2×2×2 grid
@@ -432,9 +434,9 @@ patch <- (grid_6 / x_shared + plot_layout(heights = c(1, 1, 1, 0.08))) +
   )
 
 patch
-
+getwd()
 # --- export for 8.5 × 11 in page ---
-ggsave("6_EPOC_Metrics_.png", plot = patch,
+ggsave("03_Graphs/Pub/Pub_EPOC_Metrics_.png", plot = patch,
        width = 11, height = 8.5, units = "in", dpi = 300)
 
 ######################################################
@@ -503,9 +505,9 @@ library(stringr)
 # Merge data for SMR and EPOC duration from both dataframes
 merged_data <- merge(data_SMR_Lab_metabolism_A, epoc_results, by = "Fish.ID", all.x = TRUE)
 
-
+#15C PLOT
 # Plot MO2 recovery profiles with modelled recovery curves, SMR, and EPOC.duration
-ggplot() +
+warm <- ggplot() +
   # Original MO2 data (black line), still filtered by TempMeta = 15
   geom_line(
     data = merged_data %>% filter(TempMeta == 15),
@@ -542,15 +544,62 @@ ggplot() +
     axis.title = element_text(size = 14),
     axis.text = element_text(size = 12),
     plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
-  )
+  ) 
+#10C plot
+cold <- ggplot() +
+  # Original MO2 data (black line), still filtered by TempMeta = 10
+  geom_line(
+    data = merged_data %>% filter(TempMeta == 10),
+    aes(x = Cumulative.Duration, y = O2.Kg.L.h, group = Fish.ID),
+    color = "black"
+  ) +
+  # Modelled recovery curve (red line), only Fish.IDs starting with "2024"
+  geom_line(
+    data = predicted_data %>% filter(str_starts(Fish.ID, "2024")),
+    aes(x = Cumulative.Duration, y = pred, group = Fish.ID),
+    color = "red"
+  ) +
+  # Horizontal dotted line for SMR (blue), TempMeta = 10
+  geom_hline(
+    data = merged_data %>% filter(TempMeta == 10),
+    aes(yintercept = low10),
+    linetype = "dotted", color = "blue"
+  ) +
+  # Vertical dashed line for EPOC duration (green), TempMeta = 15
+  geom_vline(
+    data = merged_data %>% filter(TempMeta == 10),
+    aes(xintercept = EPOC.duration),
+    linetype = "dashed", color = "green"
+  ) +
+  facet_wrap(~ Fish.ID, scales = "free_y") +
+  labs(
+    x = "Time (hours)",
+    y = "MO2 (mgO2/Kg/L/h)", 
+    title = "MO2 Recovery Profile and Modelled Curve (10C)"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
+  ) 
 
-#######
+print(cold) #10C
+print(warm) #15C
 
+ggsave("03_Graphs/3_RawMO2Curves/10C_MO2_EPOC.png", plot = cold,
+       width = 11, height = 8.5, units = "in", dpi = 300)
+ggsave("03_Graphs/3_RawMO2Curves/15C_MO2_EPOC.png", plot = warm,
+       width = 11, height = 8.5, units = "in", dpi = 300)
+
+#########
+#Supplementary plot of recovery curve 
 # Single fish EPOC recovery plot
-# Fish ID: 2024-08-04_001
+# Fish ID: 2024-08-04_003 - chase + air - 10C
 
 # Filter data for the specific fish
-fish_id <- "2024-08-04_001"
+fish_id <- "2024-08-04_003"
 single_fish_raw <- merged_data %>% filter(Fish.ID == fish_id)
 single_fish_pred <- predicted_data %>% filter(Fish.ID == fish_id)
 
@@ -562,26 +611,46 @@ fish_temp <- unique(single_fish_raw$TempMeta)
 
 # Create the plot
 p_single <- ggplot() +
+  # Shaded EPOC area
+  geom_ribbon(data = single_fish_pred %>% filter(Cumulative.Duration <= epoc_dur),
+              aes(x = Cumulative.Duration,
+                  ymin = smr_value,
+                  ymax = pmax(pred, smr_value),
+                  fill = "EPOC"),
+              alpha = 0.2) +
   # Raw MO2 data (black line)
   geom_line(data = single_fish_raw,
-            aes(x = Cumulative.Duration, y = O2.Kg.L.h),
-            color = "black", linewidth = 1.5) +
+            aes(x = Cumulative.Duration, y = O2.Kg.L.h,
+            color = "Raw MO2"), linewidth = 1.5) +
   # Modelled recovery curve (red line)
   geom_line(data = single_fish_pred,
-            aes(x = Cumulative.Duration, y = pred),
-            color = "red", linewidth = 1.5, linetype = "solid") +
+            aes(x = Cumulative.Duration, y = pred, color = "Recovery curve"),
+            linewidth = 1.5, linetype = "solid") +
   # SMR horizontal line (blue dashed)
-  geom_hline(yintercept = smr_value,
-             linetype = "dashed", color = "blue", linewidth = 1.2) +
+  geom_hline(aes(yintercept = smr_value, color = "SMR"),
+             linetype = "dashed", linewidth = 1.2) +
   # EPOC duration vertical line (green dashed)
-  geom_vline(xintercept = epoc_dur,
-             linetype = "dashed", color = "darkgreen", linewidth = 1.2) +
+  geom_vline(aes(xintercept = epoc_dur,color = "Recovery threshold"),
+             linetype = "dashed", linewidth = 1.2) +
+  # Manual scales for legend
+  scale_color_manual(
+    name = NULL,
+    values = c("SMR" = "blue", "Recovery curve" = "red", "Raw MO2" = "black", "Recovery threshold" = "darkgreen"),
+    guide = guide_legend(
+      override.aes = list(
+        linetype = c("dashed", "solid", "solid", "dashed"),
+        linewidth = c(1.2, 1.2, 1.2,1.2)
+      )
+    )
+  ) +
+  scale_fill_manual(
+    name = NULL,
+    values = c("EPOC" = "darkgreen")
+  ) +
   # Labels and formatting
   labs(
-    title = paste("EPOC Recovery Profile"),
-    subtitle = paste("Weight:", fish_weight, "g | Temperature:", fish_temp, "°C"),
     x = "Time (hours)",
-    y = expression(bold("MO"[2]*" (mgO"[2]*"/kg/h)"))
+    y = expression(bold("MO"[2]*" (mgO"[2]*"/kg/h"*")"))
   ) +
   # Theme for presentation
   theme_classic(base_size = 20) +
@@ -593,14 +662,18 @@ p_single <- ggplot() +
     axis.line = element_line(linewidth = 1.5, color = "black"),
     axis.ticks = element_line(linewidth = 1.2),
     panel.background = element_rect(fill = "white"),
-    plot.margin = margin(20, 20, 20, 20)
+    plot.margin = margin(20, 20, 20, 20),
+    legend.position = c(0.95, 0.95),
+    legend.justification = c(1, 1),
+    legend.text = element_text(size = 16, face = "bold"),
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.5),
+    legend.margin = margin(6, 10, 6, 10)
   )
-
 # Display the plot
 print(p_single)
 
 # Optional: Save the plot
-ggsave(paste0("EPOC_Recovery_", fish_id, ".png"),
+ggsave(paste0("03_Graphs/Pub/EPOC_Recovery_", fish_id, ".png"),
        plot = p_single,
        width = 12, height = 8, units = "in", dpi = 300)
 

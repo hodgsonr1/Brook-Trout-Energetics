@@ -5,7 +5,6 @@
 #         Data used in from experients at Kenauk in 2024 and 2025, examining the metabolic costs of simulated catch and release angling events, on hatchery brook trout.  
 
 # Date created: October 18 2024
-# Date last modified: Nov 7 2025 ------------------------------
 RStudio.Version()
 
 #
@@ -390,7 +389,6 @@ print(unique(data_SMR_Lab_results$Fish.ID))
 #----------------------------#
 ###Convert slopes to O2/L/h
 #----------------------------#
-
 str(data_SMR_Lab)
 str(data_SMR_Lab_results)
 str(background_trial_avg)
@@ -425,8 +423,6 @@ data_SMR_Lab_metabolism <-
                             yes=TRUE,
                             no=FALSE),
   ) %>% filter(!is.na(O2slope))
-
-
 
 #----------------------------#
 ###Clean up the Data
@@ -793,6 +789,8 @@ print(stress_EPOC.J)
 getwd()
 #save to disk for use in bioenergetics model
 saveRDS(stress_EPOC.J, "../4_BT_FB4_model/Inputs/stress_EPOC.J.rds")
+#save main resp df for analysis
+saveRDS(summary_df, "04_R_ouputs/summary_df.rds")
 
 
 

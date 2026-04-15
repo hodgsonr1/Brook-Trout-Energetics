@@ -3,22 +3,36 @@
 #---------------------
 #STATISTICAL TESTS
 #---------------------
+
+#Purpose: Statsitical tests for differences in treatments and temperature on 6 metrics of metabolic recovery 
+#dependencies: summary_df output from Kenauk_Respirometry core script
 ############################################################
 
 # Load packages
+library(dplyr)
 library(car) 
 library(pwr)
 library(effectsize)
 library(effsize)
 library(WRS2)
 library(emmeans)
+library(lme4)
+library(lmerTest)
 #--------------------------------------------------------
-#clean data 
+#load data 
+summary_df <- readRDS("04_R_ouputs/summary_df.rds")
+
+#create continous trial order 
+summary_df <- summary_df %>%
+  mutate(Trial = as.numeric(factor(paste(DateMeta, Trial), 
+                                   levels = unique(paste(DateMeta, Trial)))))
+
 #convert tempMeta to factor 
 summary_df$TempMeta <- as.factor(summary_df$TempMeta)
 summary_df$Treatment.x <- as.factor(summary_df$Treatment.x)
 summary_df$TL <- as.numeric(summary_df$TL)
 summary_df$Weight.g <- as.numeric(summary_df$Weight.g)
+
 
 #check sample sizes. 
 summary_df %>%
@@ -110,70 +124,65 @@ car::Anova(lm_fit, type = "III", white.adjust = "hc3")
 #ANCOVAS
 #--------------------
 
+#2.1 magnitude of EPOC
+mag_lm <- lmer(EPOC.magnitude ~ TempMeta * Treatment.x + Weight.g + (1| Trial), data=summary_df)
+Anova(mag_lm, type = 3)
+shapiro.test(residuals(mag_lm))
+qqnorm(residuals(mag_lm)); qqline(residuals(mag_lm))
+leveneTest(EPOC.magnitude ~ TempMeta * Treatment.x, data = summary_df)
+summary(mag_lm)
+#key results 
+#---> no statistically significant findings!
 
-#2.1 EPOC_duration
-dur_lm <- lm(EPOC.duration ~ TempMeta * Treatment.x * Weight.g, data=summary_df)
+#2.2 EPOC_duration
+dur_lm <- lmer(EPOC.duration ~ TempMeta * Treatment.x + Weight.g + (1| Trial), data=summary_df)
 Anova(dur_lm, type =3)
+summary(dur_lm)
 #check assumptions
 shapiro.test(residuals(dur_lm)) 
 qqnorm(residuals(dur_lm)); qqline(residuals(dur_lm))
 leveneTest(EPOC.duration ~ TempMeta * Treatment.x, data = summary_df)
-#Key Results
-#--> Treatment - p=0.053* 
-#--> Tempmeta:Treatment - p = 0.063*
-#Effect of treatment on recovery duration (main effect)(Not interpretable because of interactions) 
-#effect of temperature depends on treatment (interaction)
-#effect of treatment depends on weight (interaction)
 
-#POST-HOC - Tukey HSD.
-#A) Do epoc durations at each treatment differ by temperature
-emmeans(dur_lm, pairwise ~ TempMeta|Treatment.x, adjust = "tukey") 
-#result --> longer recovery at 10C vs 15C for chase treatment 
+emmeans(dur_lm, pairwise ~ TempMeta, adjust = "tukey") 
 
+contrasts(summary_df$TempMeta)
 
+# #result --> longer recovery at 10C vs 15C for chase treatment 
 
 #------------------------------------------------------------
-#2.2 peak EPOC
-peak_lm <- lm(EPOC.peak ~ TempMeta * Treatment.x * Weight.g, data=summary_df)
-Anova(peak_lm, type = 3) 
-#check assumptions tests
-shapiro.test(residuals(peak_lm)) 
-qqnorm(residuals(peak_lm)); qqline(residuals(peak_lm))
-leveneTest(EPOC.peak ~ TempMeta * Treatment.x, data = summary_df)
-#key results 
-#--> TempMeta - p = 0.00617**
-# Significant effect of temperature on the peak EPOC. 
-
-#post hoc tests 
-emmeans(peak_lm, pairwise ~ TempMeta, adjust = "tukey")
-#peak EPOC is significantly higher at 15C compared to 10C. 
-
-#------------------------------------------------------------
-#2.3 magnitude of EPOC
-mag_lm <- lm(EPOC.magnitude ~ TempMeta + Treatment.x + Weight.g, data=summary_df)
-Anova(mag_lm, type = 3)
-shapiro.test(residuals(mag_lm)) #significant but qq looks OK.
-qqnorm(residuals(mag_lm)); qqline(residuals(mag_lm))
-leveneTest(EPOC.magnitude ~ TempMeta * Treatment.x, data = summary_df)
-#key results 
-#---> no statistically significant findings!
-#------------------------------------------------------------
-#2.4 SMR
-smr_lm <- lm(low10 ~ TempMeta * Treatment.x * Weight.g, data=summary_df)
+#2.3 SMR
+smr_lm <- lmer(low10 ~ TempMeta * Treatment.x + Weight.g + (1| Trial), data=summary_df)
 Anova(smr_lm, type = 3)
-shapiro.test(residuals(smr_lm)) #significant but qq looks OK
+summary(smr_lm)
+contrasts()
+shapiro.test(residuals(smr_lm)) #significant outliers here!
 qqnorm(residuals(smr_lm));qqline(residuals(smr_lm))
 leveneTest(low10 ~ TempMeta * Treatment.x, data=summary_df)
 #key results 
 #--> TempMeta p<0.001
 #post hoc tests 
-emmeans(smr_lm, pairwise ~ TempMeta, adjust = "tukey")
+emmeans(smr_lm, pairwise ~ Treatment.x, adjust = "tukey")
 #SMR is significantly larger at 15C compared to 10C. 
+#------------------------------------------------------------
+#2.4 peak EPOC
+
+peak_lm <- lmer(EPOC.peak ~ TempMeta * Treatment.x + Weight.g + (1| Trial), data=summary_df)
+Anova(peak_lm, type = 3) 
+summary(peak_lm)
+#check assumptions tests
+shapiro.test(residuals(peak_lm)) 
+qqnorm(residuals(peak_lm)); qqline(residuals(peak_lm))
+leveneTest(EPOC.peak ~ TempMeta * Treatment.x, data = summary_df)
+# Significant effect of temperature on the peak EPOC. 
+#peak EPOC is significantly higher at 15C compared to 10C. 
+
+#------------------------------------------------------------
 
 #------------------------------------------------------------
 #2.5 delta peak EPOC - SMR
-delta_lm <- lm(delta_peak ~ TempMeta + Treatment.x + Weight.g, data=summary_df)
+delta_lm <- lmer(delta_peak ~ TempMeta * Treatment.x + Weight.g + (1| Trial), data=summary_df)
 Anova(delta_lm, type=3)
+summary(delta_lm)
 shapiro.test(residuals(delta_lm))
 qqnorm(residuals(delta_lm));qqline(residuals(delta_lm))
 leveneTest(delta_peak ~ TempMeta * Treatment.x, data=summary_df)
@@ -182,15 +191,21 @@ emmeans(delta_lm, pairwise ~ TempMeta, adjust = "tukey")
 #key results 
 #--> MO2 scope is higher at 15C compared to 10C.
 
-
+#check order of temp (10 & 15) factors 
+contrasts(summary_df$TempMeta)
+contrasts(summary_df$Treatment.x)
 
 #------------------------------------------------------------
 #2.6 Ratio Peak EPOC/SMR
-ratio_lm <- lm(ratio ~ TempMeta * Treatment.x * Weight.g, data=summary_df)
+ratio_lm <- lmer(ratio ~ TempMeta * Treatment.x + Weight.g + (1| Trial) , data=summary_df)
 Anova(ratio_lm, type=3)
+summary(ratio_lm)
 shapiro.test(residuals(ratio_lm))
 qqnorm(residuals(ratio_lm));qqline(residuals(ratio_lm))
 leveneTest(ratio ~ TempMeta * Treatment.x, data=summary_df)
+
+emmeans(ratio_lm, pairwise ~ TempMeta, adjust = "tukey")
+
 #key results 
 #--> non significant
 

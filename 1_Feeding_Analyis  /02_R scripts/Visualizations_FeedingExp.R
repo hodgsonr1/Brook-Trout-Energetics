@@ -82,7 +82,7 @@ pt <- ggsurvplot(
   legend.title = "Temp (°C)",
   legend.labs  = c("10 °C", "15 °C"),
   xlab = "Time to first feeding (hours)",
-  ylab = "Survival",
+  ylab = "Proportion not yet feeding",
   ggtheme = theme_classic(base_size = 12) +
     theme(
       # Thick axis lines
@@ -132,7 +132,7 @@ pw <- ggsurvplot(
   legend.title = "Weight",
   legend.labs  = c("Small", "Large"),
   xlab = "Time to first feeding (hours)",
-  ylab = "Survival",
+  ylab = "Proportion not yet feeding",
   ggtheme = theme_classic(base_size = 12) +
     theme(
       # Thick axis lines
