@@ -1,18 +1,41 @@
 #functions for BT bioenergetics model
 
 #load packages
+getwd()
+
 library(tidyverse)
 
-#setup grow function 
+#setup grow function
+# EDP/ED may be a scalar (recycled across all days) or a length-ndays vector
+# (e.g. a real daily prey-energy-density or fish-energy-density profile).
+# ED defaults to NULL, which falls back to the single meta$ED value (main model usage).
 grow <- function(data, meta, ndays, p0, stress_df,
-                 oxycal, EDP) {
+                 oxycal, EDP, ED = NULL) {
+  # pad data defensively so callers don't need to pre-allocate an ndays+1'th row
+  # (grow() writes to row i+1 on its last iteration, i == ndays)
+  if (nrow(data) < ndays + 1) {
+    pad_n <- ndays + 1 - nrow(data)
+    pad <- data[rep(nrow(data), pad_n), , drop = FALSE]
+    pad$day <- max(data$day, na.rm = TRUE) + seq_len(pad_n)
+    data <- dplyr::bind_rows(data, pad)
+  }
+
+  # pre-allocate intermediate columns so tibble inputs don't warn "unknown or
+  # uninitialised column" when the loop below first assigns data$COL[i] <- ...
+  calc_cols <- c("CG1", "L1", "KA", "CG2", "L2", "KB", "ftC", "Cmax", "Cons.p",
+                 "C", "Cons.g", "Cons.J", "Eg", "Ex", "SDA", "Z", "Y", "X", "V",
+                 "ftR", "Rmax", "Met.J", "EPOC.J", "Growth.J", "Growth.g")
+  for (col in calc_cols) if (!col %in% names(data)) data[[col]] <- NA_real_
+
   # day-by-day schedules
   p_vec    <- rep_len(p0, ndays)
-  epoc_vec <- rep_len(0,  ndays)   
-  
-  p_vec[stress_df$day]    <- stress_df$p_stress 
+  epoc_vec <- rep_len(0,  ndays)
+  EDP_vec  <- rep_len(EDP, ndays)
+  ED_vec   <- if (is.null(ED)) rep_len(meta$ED, ndays) else rep_len(ED, ndays)
+
+  p_vec[stress_df$day]    <- stress_df$p_stress
   epoc_vec[stress_df$day] <- stress_df$EPOC.J.g
-  
+
 
   for (i in seq_len(ndays)) {
     
@@ -32,8 +55,8 @@ grow <- function(data, meta, ndays, p0, stress_df,
     data$Cons.p[i] <- p_vec[i]
     
     data$C[i]      <- data$Cmax[i] * data$Cons.p[i] * data$ftC[i]     # proportion of Cmax * temp effect
-    data$Cons.g[i] <- data$C[i] * data$weight[i]                       
-    data$Cons.J[i] <- data$Cons.g[i] * EDP                              # J ingested
+    data$Cons.g[i] <- data$C[i] * data$weight[i]
+    data$Cons.J[i] <- data$Cons.g[i] * EDP_vec[i]                       # J ingested
     
     # ----- Wastes -----
     data$Eg[i] <- meta$FA * (data$temp[i])^(meta$FB) * exp(meta$FG * data$Cons.p[i]) * data$Cons.J[i]
@@ -59,11 +82,11 @@ grow <- function(data, meta, ndays, p0, stress_df,
     
     # ----- Growth  -----
     data$Growth.J[i] <- data$Cons.J[i] - (data$Met.J[i] + data$SDA[i] + data$Eg[i] + data$Ex[i] + data$EPOC.J[i])
-    data$Growth.g[i] <- data$Growth.J[i] / meta$ED
-    
+    data$Growth.g[i] <- data$Growth.J[i] / ED_vec[i]
+
     # ----- update weight -----
       data$E[i + 1]      <- data$E[i] + data$Growth.J[i]
-      data$weight[i + 1] <- data$E[i + 1] / meta$ED
+      data$weight[i + 1] <- data$E[i + 1] / ED_vec[i]
     }
   
   list(data = dplyr::filter(data, day <= ndays),
@@ -73,16 +96,18 @@ grow <- function(data, meta, ndays, p0, stress_df,
 #################################################################
 #Fit-p fxn
 #Determine p0 based on initial and final weights using bioenergetics model
-#Uses bisection method to find p0 that achieves target final weight over 120 days
+#Uses bisection method to find p0 that achieves target final weight over 60 days
 
 fit.p <- function(initial_g, final_g, sim_template, meta, oxycal, EDP,
-                  W.tol = 0.5, max.iter = 100) {
+                  ndays = 60, ED = NULL, W.tol = 0.5, max.iter = 100) {
   # initial_g: Initial weight in grams
   # final_g: Target final weight in grams
   # sim_template: Dataframe with temperature profile (day, temp columns)
   # meta: Brook trout bioenergetics parameters (bt)
   # oxycal: Oxygen calorie conversion (13560)
-  # EDP: Prey energy density (4000)
+  # EDP: Prey energy density - scalar or length-ndays vector
+  # ndays: number of days to simulate (default 120)
+  # ED: Fish energy density - scalar/NULL (uses meta$ED) or length-ndays vector
   # W.tol: Weight tolerance for convergence (default 0.5g)
   # max.iter: Maximum iterations (default 100)
 
@@ -99,16 +124,19 @@ fit.p <- function(initial_g, final_g, sim_template, meta, oxycal, EDP,
     EPOC.J.g = numeric(0)
   )
 
+  # ED0: fish energy density on day 1, for initializing sim$E[1]
+  ED0 <- if (is.null(ED)) meta$ED else rep_len(ED, ndays)[1]
+
   # Create simulation dataframe (copy template to avoid modification)
   sim <- sim_template
   sim$weight <- NA
   sim$E <- NA
   sim$weight[1] <- initial_g
-  sim$E[1] <- initial_g * meta$ED
+  sim$E[1] <- initial_g * ED0
 
   # Initial run
-  output <- grow(data = sim, meta = meta, ndays = 120, p0 = p,
-                 stress_df = stress_df, oxycal = oxycal, EDP = EDP)
+  output <- grow(data = sim, meta = meta, ndays = ndays, p0 = p,
+                 stress_df = stress_df, oxycal = oxycal, EDP = EDP, ED = ED)
   W.p <- output[[2]]
 
   # Bisection loop to find p0 that produces target final weight
@@ -130,11 +158,11 @@ fit.p <- function(initial_g, final_g, sim_template, meta, oxycal, EDP,
     sim$weight <- NA
     sim$E <- NA
     sim$weight[1] <- initial_g
-    sim$E[1] <- initial_g * meta$ED
+    sim$E[1] <- initial_g * ED0
 
     # Run grow with new p
-    output <- grow(data = sim, meta = meta, ndays = 120, p0 = p,
-                   stress_df = stress_df, oxycal = oxycal, EDP = EDP)
+    output <- grow(data = sim, meta = meta, ndays = ndays, p0 = p,
+                   stress_df = stress_df, oxycal = oxycal, EDP = EDP, ED = ED)
     W.p <- output[[2]]
   }
 
@@ -150,6 +178,8 @@ run_scenario <- function(scenario_row, sim_template, meta, ndays, p0, y_spacing,
 
   # Set up simulation data frame (copy template)
   sim <- sim_template
+  sim$weight <- NA
+  sim$E <- NA
 
   # Set initial weight from Weight_kg (convert kg to g)
   sim$weight[1] <- scenario_row$Weight_kg * 1000
@@ -202,7 +232,6 @@ run_scenario <- function(scenario_row, sim_template, meta, ndays, p0, y_spacing,
   data.frame(
     EPOC_level = scenario_row$EPOC_level,
     Temperature = scenario_row$Temperature..C,
-    Weight_Class = scenario_row$Weight_Class,
     n_events = scenario_row$n_events,
     initial_weight_g = sim$weight[1],
     final_weight_g = final_weight,
@@ -211,7 +240,5 @@ run_scenario <- function(scenario_row, sim_template, meta, ndays, p0, y_spacing,
     Net_Energy = net_energy
   )
 }
-
-. 
 
 
