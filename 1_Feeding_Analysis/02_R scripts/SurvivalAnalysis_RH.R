@@ -7,7 +7,7 @@
 
 ##Author: Ryan Hodgson
 ## Date created: Nov 22 2024
-## Date last modified: Aug 21 2026
+## Date last modified: Sept 13 2026
 ####################
 
 #load packages
@@ -273,14 +273,22 @@ print(p_24h_tbl)
 saveRDS(p_24h_tbl, "../3_BT_FB4_model/Inputs/p_24h_tbl.rds")
 
 ##############################################################################
-# Bootstrap F_after: propagate Cox model parameter uncertainty ----
+# Bootstrap F_after: propagate Cox model parameter uncertainty via a stratified
+# cluster (trial-level) bootstrap, not row-level resampling ----
 ##############################################################################
-# Resamples the raw trial rows (not the fitted model), refits the same coxph
-# model each time, and recomputes F_after at the SAME fixed representative
-# weight - only the feeding-resumption relationship's uncertainty propagates,
+# Fish were run in trials of ~4, so individual rows are not independent; naive
+# row-level resampling understates between-trial variability and produces
+# overconfident (too-narrow) F_after CIs. Trial is also perfectly confounded with
+# Temperature (trials 1-10 are all 10C, trials 11-19 are all 15C - no trial spans
+# both), so resampling is stratified by temperature to preserve that balance in
+# every replicate: whole trials (all their rows together) are resampled with
+# replacement within each temperature stratum, refitting coxph on each resample.
 
 N_boot <- 1000
 set.seed(42)
+
+trials_10 <- unique(feed_df$Trial..[feed_df$Temperature..C == "10"])
+trials_15 <- unique(feed_df$Trial..[feed_df$Temperature..C == "15"])
 
 fit_boot_F_after <- function(resampled) {
   cph_b <- tryCatch(
@@ -305,7 +313,11 @@ fit_boot_F_after <- function(resampled) {
 }
 
 boot_results <- map(seq_len(N_boot), function(i) {
-  resampled <- feed_df[sample(nrow(feed_df), nrow(feed_df), replace = TRUE), ]
+  sampled_trials <- c(
+    sample(trials_10, length(trials_10), replace = TRUE),
+    sample(trials_15, length(trials_15), replace = TRUE)
+  )
+  resampled <- map_dfr(sampled_trials, function(tid) feed_df[feed_df$Trial.. == tid, ])
   # guard against a degenerate resample losing an entire factor level
   resampled$Temperature..C <- factor(resampled$Temperature..C, levels = levels(feed_df$Temperature..C))
   resampled$Treatment <- factor(resampled$Treatment, levels = levels(feed_df$Treatment))
